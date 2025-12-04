@@ -293,7 +293,7 @@ interface AdaLocation extends Location {
 import { TextDocumentPositionParams, ReferenceParams } from 'vscode-languageserver-protocol';
 
 async function findWriteReferences() {
-    vscode.window.showInformationMessage('Ada Write References Command Sent');
+    vscode.window.showInformationMessage('Ada Write References Command Started');
     const editor = vscode.window.activeTextEditor;
     const client = adaExtState.adaClient;
 
@@ -316,7 +316,8 @@ async function findWriteReferences() {
     };
 
     try {
-        const results = await client.sendRequest<any[]>('textDocument/references', params); // Use <any[]> for now
+        const results = await adaExtState.adaClient.sendRequest<any[]>('textDocument/references', params); // Use <any[]> for now
+        vscode.window.showInformationMessage('Ada Write References Command Sent');
 
         if (!results || results.length === 0) {
             vscode.window.showInformationMessage('Server returned no references.');
@@ -333,6 +334,11 @@ async function findWriteReferences() {
         console.log(`Found ${results.length} total references.`);
         console.log(`Found ${writeReferences.length} write references after filtering.`);
 
+        if (writeReferences.length == 0){
+            vscode.window.showInformationMessage('No write references found.');
+            return;
+        }
+        
         // display write references to confirm the rest of the code works
         const vsCodeLocations = writeReferences.map(ref => {
              const uri = vscode.Uri.parse(ref.uri);
