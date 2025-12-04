@@ -121,6 +121,9 @@ export function registerCommands(context: vscode.ExtensionContext, clients: Exte
         ),
     );
 
+    //const disposable = vscode.commands.registerCommand('ada-write-references.find', findWriteReferences);
+    //context.subscriptions.push(disposable);
+
     context.subscriptions.push(
         vscode.commands.registerCommand('ada.buildAndRunMainLast', buildAndRunMainLast),
     );

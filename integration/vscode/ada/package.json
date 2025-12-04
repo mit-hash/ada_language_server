@@ -1091,6 +1091,10 @@
         ],
         "commands": [
             {
+                "command": "ada-write-references.find",
+                "title": "Ada: Find Write References"
+            },
+            {
                 "command": "ada.restartLanguageServers",
                 "title": "Restart Language Servers",
                 "category": "Ada",
@@ -1323,6 +1327,11 @@
                 }
             ],
             "editor/context": [
+                {
+                    "when": "editorHasReferenceProvider && editorLangId == 'ada'",
+                    "command": "ada-write-references.find",
+                    "group": "navigation"
+                },
                 {
                     "command": "ada.otherFile",
                     "group": "ada",

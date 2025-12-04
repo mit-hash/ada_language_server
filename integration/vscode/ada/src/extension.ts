@@ -37,6 +37,13 @@ import {
 import * as meta from '../package.json';
 import { activateE3TestsuiteIntegration } from './e3Testsuite';
 
+import {
+    LanguageClient,
+    LanguageClientOptions,
+    ServerOptions,
+    TransportKind
+} from 'vscode-languageclient/node';
+
 export const EXTENSION_NAME: string = meta.displayName;
 
 /** The context key that is set when the Ada extension has been
@@ -167,6 +174,9 @@ async function activateExtension(context: vscode.ExtensionContext) {
         vscode.languages.onDidChangeDiagnostics(adaExtState.updateStatusBarItem),
     );
 
+    const disposable = vscode.commands.registerCommand('ada-write-references.find', findWriteReferences);
+    context.subscriptions.push(disposable);
+
     const alsMiddleware: Middleware = {
         executeCommand: alsCommandExecutor(adaExtState.adaClient),
     };
@@ -270,4 +280,75 @@ function setUpLogging(context: vscode.ExtensionContext) {
 
 export async function deactivate() {
     await vscode.commands.executeCommand('setContext', ADA_CONTEXT, undefined);
+}
+
+// A standard Location from the LSP
+import { Location } from 'vscode-languageserver-protocol';
+
+// custom Location object that includes the alsKind property
+interface AdaLocation extends Location {
+    alsKind: string; // e.g., "write", "read", "declaration", etc.
+}
+
+import { TextDocumentPositionParams, ReferenceParams } from 'vscode-languageserver-protocol';
+
+async function findWriteReferences() {
+    vscode.window.showInformationMessage('Ada Write References Command Sent');
+    const editor = vscode.window.activeTextEditor;
+    const client = adaExtState.adaClient;
+
+    if (!editor) {
+        return;
+    }
+
+    if (!client) {
+        vscode.window.showErrorMessage("Cannot find references: The Ada Language Server is not running.");
+        return;
+    }
+
+    const document = editor.document;
+    const position = editor.selection.active;
+
+    const params: ReferenceParams = {
+        textDocument: { uri: document.uri.toString() },
+        position: position,
+        context: { includeDeclaration: true } 
+    };
+
+    try {
+        const results = await client.sendRequest<any[]>('textDocument/references', params); // Use <any[]> for now
+
+        if (!results || results.length === 0) {
+            vscode.window.showInformationMessage('Server returned no references.');
+            return;
+        }
+
+        console.log("--------- RAW RESPONSE FROM SERVER: ---------", JSON.stringify(results, null, 2));
+
+        const writeReferences = results.filter(ref => 
+            ref.alsKind && ref.alsKind.includes('write')
+        );
+
+
+        console.log(`Found ${results.length} total references.`);
+        console.log(`Found ${writeReferences.length} write references after filtering.`);
+
+        // display write references to confirm the rest of the code works
+        const vsCodeLocations = writeReferences.map(ref => {
+             const uri = vscode.Uri.parse(ref.uri);
+             const range = new vscode.Range(ref.range.start.line, ref.range.start.character, ref.range.end.line, ref.range.end.character);
+             return new vscode.Location(uri, range);
+        });
+
+        vscode.commands.executeCommand(
+            'editor.action.showReferences',
+            document.uri,
+            position,
+            vsCodeLocations
+        );
+
+    } catch (error) {
+        console.error("The 'sendRequest' method failed:", error);
+        vscode.window.showErrorMessage(`Error fetching references: ${error}. See Debug Console.`);
+    }
 }
